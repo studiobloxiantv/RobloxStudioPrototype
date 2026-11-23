@@ -1,0 +1,253 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Studio Lite</title>
+<style>
+:root{--bg:#1e1f22;--p:#2b2d31;--p2:#35373c;--b:#45474d;--t:#e6e6e6;--m:#9aa0a6;--a:#0d8bff}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--t);font:13px/1.3 "Source Sans Pro",system-ui,sans-serif;overflow:hidden}
+#app{display:flex;flex-direction:column;height:100%;padding-top:env(safe-area-inset-top)}
+#top{background:#16171a;display:flex;align-items:center;gap:8px;padding:5px 8px}
+#top b{color:var(--a);font-size:16px}#top span{color:var(--m);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#user,.pn input[type=text],.pn input[type=number]{background:var(--bg);border:1px solid var(--b);color:var(--t);border-radius:3px;padding:3px 5px;font:inherit;user-select:text}
+#user{width:120px;margin-left:auto}
+#tabs{display:flex;background:var(--p)}#tabs div{padding:7px 14px;color:var(--m);font-weight:600;font-size:12px}
+#tabs .on{color:var(--t);border-bottom:2px solid var(--a)}
+#rib{display:flex;gap:4px;overflow-x:auto;background:var(--p2);padding:6px;border-bottom:1px solid #111}
+.btn{flex:none;min-width:54px;background:var(--p);border:1px solid var(--b);color:var(--t);border-radius:4px;padding:5px 8px;text-align:center;font-size:11px}
+.btn.on{background:var(--a);border-color:var(--a)}.btn i{display:block;font-style:normal;font-size:16px}
+#vp{position:relative;flex:1;min-height:120px}canvas{display:block;width:100%;height:100%;touch-action:none}
+#nud{position:absolute;right:6px;top:6px;display:flex;flex-wrap:wrap;gap:3px;width:150px;justify-content:flex-end}
+#nud .btn{min-width:46px;padding:7px 0;background:#2b2d31cc}
+#joy{position:absolute;left:20px;bottom:28px;width:110px;height:110px;border-radius:50%;background:#ffffff33;touch-action:none}
+#knob{position:absolute;left:35px;top:35px;width:40px;height:40px;border-radius:50%;background:#ffffffbb}
+#jmp{position:absolute;right:24px;bottom:40px;width:80px;height:80px;border-radius:50%;background:#ffffff55;display:flex;align-items:center;justify-content:center;font-weight:700}
+#toast{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);background:#000c;padding:6px 12px;border-radius:14px;opacity:0;transition:.3s;pointer-events:none;text-align:center}
+body.play #sh,body.play #tabs,body.play #rib,body.play #nud{display:none}
+body:not(.play) #joy,body:not(.play) #jmp{display:none}
+#sh{height:36%;min-height:150px;background:var(--p);display:flex;flex-direction:column;border-top:1px solid #111}
+#st{display:flex;background:#232427}#st div{padding:6px 14px;color:var(--m)}#st .on{color:var(--t);background:var(--p)}
+.pn{flex:1;overflow:auto;padding:4px 0}
+.r{padding:5px 10px}.c{padding-left:26px}.s{background:#0d8bff55}
+.pr{display:flex;align-items:center;gap:4px;padding:3px 10px}.pr span{width:90px;color:var(--m)}.pr input[type=number]{width:60px}
+.pr input[type=text]{flex:1}.pr input[type=color]{width:50px;height:26px;border:0;padding:0;background:none}
+#tb{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px;padding:8px}
+#tb:not([hidden]){display:grid}#tb .btn{padding:10px 4px}
+</style></head><body><div id="app">
+<div id="top"><b>◧</b><span>Studio Lite · Place1.rbxlx</span><input id="user" placeholder="Roblox username" autocomplete="off"><div class="btn" id="bp">▶ Play</div><div class="btn" id="bs" hidden>■ Stop</div></div>
+<div id="tabs"></div><div id="rib"></div>
+<div id="vp"><div id="nud"></div><div id="joy"><div id="knob"></div></div><div id="jmp">Jump</div><div id="toast"></div></div>
+<div id="sh"><div id="st"><div data-s="exp" class="on">Explorer</div><div data-s="prop">Properties</div><div data-s="tb">Toolbox</div></div>
+<div id="exp" class="pn"></div><div id="prop" class="pn" hidden></div><div id="tb" class="pn" hidden></div></div></div>
+<!-- For the APK, bundle three.js locally instead of using the CDN. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $=s=>document.querySelector(s),VP=$('#vp');
+const R=new THREE.WebGLRenderer({antialias:true});VP.prepend(R.domElement);
+const S=new THREE.Scene();S.background=new THREE.Color(0x9fcdf5);
+const C=new THREE.PerspectiveCamera(60,1,.1,3000);
+S.add(new THREE.HemisphereLight(0xffffff,0x667788,.95));const sun=new THREE.DirectionalLight(0xffffff,.55);sun.position.set(50,100,30);S.add(sun);
+const grid=new THREE.GridHelper(200,100,0x444444,0x777777);grid.position.y=.03;S.add(grid);
+const hl=new THREE.BoxHelper(new THREE.Mesh(new THREE.BoxGeometry()),0x0d8bff);hl.visible=false;S.add(hl);
+const GEO={block:new THREE.BoxGeometry(1,1,1),ball:new THREE.SphereGeometry(.5,24,16),cyl:new THREE.CylinderGeometry(.5,.5,1,24).rotateZ(Math.PI/2)};
+let parts=[],sel=null,tool='select',mode='edit',uid=1,snap=1,T=new THREE.Vector3(0,2,0),yaw=.8,pitch=.5,dist=40,avTex=null,saved;
+
+// ---------- 3D Drag Gizmo (Move & Scale Handles) ----------
+const gz=new THREE.Group();gz.visible=false;S.add(gz);
+const gzHits=[];
+const AXES=[
+ {a:0,s:1,d:[1,0,0],c:0xff3b30},{a:0,s:-1,d:[-1,0,0],c:0xff3b30},
+ {a:1,s:1,d:[0,1,0],c:0x34c759},{a:1,s:-1,d:[0,-1,0],c:0x34c759},
+ {a:2,s:1,d:[0,0,1],c:0x007aff},{a:2,s:-1,d:[0,0,-1],c:0x007aff}
+];
+const gCone=new THREE.ConeGeometry(.26,.72,14);
+const gBall=new THREE.SphereGeometry(.26,14,12);
+const gShaft=new THREE.CylinderGeometry(.06,.06,1,8);
+const gHit=new THREE.SphereGeometry(.65,8,8);
+AXES.forEach(x=>{
+ const g=new THREE.Group(),dir=new THREE.Vector3(...x.d);
+ const mat=new THREE.MeshBasicMaterial({color:x.c,depthTest:false,transparent:true,opacity:.95});
+ const shaft=new THREE.Mesh(gShaft,mat);shaft.position.y=.5;shaft.renderOrder=999;
+ const moveTip=new THREE.Mesh(gCone,mat);moveTip.position.y=1.18;moveTip.renderOrder=999;
+ const scaleTip=new THREE.Mesh(gBall,mat);scaleTip.position.y=1.05;scaleTip.renderOrder=999;
+ const hit=new THREE.Mesh(gHit,new THREE.MeshBasicMaterial({visible:false}));hit.position.y=1.05;
+ hit.userData.gz={a:x.a,s:x.s,dir:dir.clone(),moveTip,scaleTip,mat};
+ g.add(shaft,moveTip,scaleTip,hit);
+ g.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir);
+ g.userData.gz=hit.userData.gz;
+ gz.add(g);gzHits.push(hit);
+});
+function updGizmo(){
+ if(!sel||mode!='edit'||(tool!='move'&&tool!='scale')){gz.visible=false;return}
+ gz.visible=true;gz.position.set(...sel.pos);
+ const sc=Math.max(.55,dist*.032);
+ gz.children.forEach(g=>{
+  const d=g.userData.gz,off=sel.size[d.a]/2;
+  g.position.copy(d.dir).multiplyScalar(off);
+  g.scale.setScalar(sc);
+  d.moveTip.visible=tool=='move';
+  d.scaleTip.visible=tool=='scale';
+ });
+}
+let drag=null;
+function ray(e){
+ const r=el.getBoundingClientRect(),rc=new THREE.Raycaster();
+ rc.setFromCamera(new THREE.Vector2((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1),C);
+ return rc.ray;
+}
+function dragT(r,o,d){
+ const w=new THREE.Vector3().subVectors(o,r.origin);
+ const b=r.direction.dot(d),c=r.direction.dot(w),e=d.dot(w),dn=1-b*b;
+ return dn<1e-5?e:(b*c-e)/dn;
+}
+
+function cam(){const cp=Math.cos(pitch);C.position.set(T.x+dist*Math.sin(yaw)*cp,T.y+dist*Math.sin(pitch),T.z+dist*Math.cos(yaw)*cp);C.lookAt(T)}
+function add(o){const p=Object.assign({id:uid++,name:'Part',shape:'block',pos:[0,.5,0],size:[4,1,2],color:'#a3a2a5',anchored:true,collide:true,transp:0},o);
+ p.mesh=new THREE.Mesh(GEO[p.shape],new THREE.MeshLambertMaterial());p.mesh.userData.p=p;S.add(p.mesh);upd(p);parts.push(p);return p}
+function upd(p){const m=p.mesh;m.position.set(...p.pos);m.scale.set(...p.size);m.material.color.set(p.color);m.material.transparent=p.transp>0;m.material.opacity=1-p.transp;if(p===sel){hl.object=m;hl.update();updGizmo()}}
+function select(p){sel=p;hl.visible=!!p;if(p){hl.object=p.mesh;hl.update()}updGizmo();ui();$('#nud').hidden=!p||tool=='select'}
+function toast(t){const e=$('#toast');e.textContent=t;e.style.opacity=1;clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.opacity=0,2600)}
+// ---------- UI ----------
+const F=[['Name','name','t'],['Position','pos','v'],['Size','size','v'],['Color','color','c'],['Transparency','transp','n'],['Anchored','anchored','b'],['CanCollide','collide','b']];
+function ui(){
+ $('#exp').innerHTML='<div class=r>▾ Workspace</div>'+parts.map(p=>`<div class="r c ${p===sel?'s':''}" data-i="${p.id}">${p.spawn?'⚑':p.shape=='ball'?'●':'▭'} ${p.name}${p.model?' · '+p.model:''}</div>`).join('')+'<div class=r>▸ Lighting</div><div class=r>▸ StarterPlayer</div>';
+ $('#prop').innerHTML=!sel?'<div class=r>Select a part</div>':F.map(([l,k,t])=>{const v=sel[k];let h;
+  if(t=='v')h=v.map((x,i)=>`<input type=number step=any value="${x}" data-k="${k}" data-i="${i}">`).join('');
+  else if(t=='b')h=`<input type=checkbox ${v?'checked':''} data-k="${k}">`;
+  else h=`<input type="${t=='c'?'color':t=='n'?'number':'text'}" ${t=='n'?'step=.1 min=0 max=1':''} value="${v}" data-k="${k}">`;
+  return `<div class=pr><span>${l}</span>${h}</div>`}).join('')}
+$('#exp').onclick=e=>{const i=e.target.dataset.i;if(i)select(parts.find(p=>p.id==i))};
+$('#prop').onchange=e=>{const t=e.target,k=t.dataset.k;if(!k||!sel)return;
+ if(t.dataset.i!==undefined)sel[k][+t.dataset.i]=k=='size'?Math.max(.2,+t.value):+t.value;
+ else sel[k]=t.type=='checkbox'?t.checked:t.type=='number'?Math.min(1,Math.max(0,+t.value)):t.value;upd(sel);ui()};
+document.querySelectorAll('#st div').forEach(d=>d.onclick=()=>{document.querySelectorAll('#st div').forEach(x=>x.classList.toggle('on',x==d));['exp','prop','tb'].forEach(k=>$('#'+k).hidden=k!=d.dataset.s)});
+function ins(o){const h=(o.size||[4,1,2])[1]/2;select(add(Object.assign({pos:[Math.round(T.x),h,Math.round(T.z)]},o)))}
+function grp(k){const m=k+' '+(++uid),x=Math.round(T.x),z=Math.round(T.z),a=o=>add(Object.assign({model:m},o));
+ if(k=='Tree'){a({name:'Trunk',color:'#6b4a2b',size:[2,8,2],pos:[x,4,z]});a({name:'Leaves',shape:'ball',color:'#2f8f3a',size:[9,9,9],pos:[x,11,z],collide:false})}
+ else{const w='#c9b79c';a({name:'Floor',color:'#777777',size:[16,1,16],pos:[x,.5,z]});a({name:'BackWall',color:w,size:[16,10,1],pos:[x,6,z-7.5]});
+  a({name:'LeftWall',color:w,size:[1,10,16],pos:[x-7.5,6,z]});a({name:'RightWall',color:w,size:[1,10,16],pos:[x+7.5,6,z]});
+  a({name:'FrontL',color:w,size:[6,10,1],pos:[x-5,6,z+7.5]});a({name:'FrontR',color:w,size:[6,10,1],pos:[x+5,6,z+7.5]});
+  a({name:'Lintel',color:w,size:[4,3,1],pos:[x,9.5,z+7.5]});a({name:'Roof',color:'#8a3b3b',size:[18,1,18],pos:[x,11.5,z]})}
+ ui()}
+const TB=[['▭','Part',()=>ins({})],['●','Ball',()=>ins({name:'Ball',shape:'ball',size:[4,4,4]})],['⬮','Cylinder',()=>ins({name:'Cylinder',shape:'cyl',size:[4,2,2]})],
+ ['⚑','SpawnLocation',()=>ins({name:'SpawnLocation',spawn:true,size:[6,1,6]})],['🌲','Tree',()=>grp('Tree')],['🏠','House',()=>grp('House')]];
+$('#tb').innerHTML=TB.map((t,i)=>`<div class=btn data-t=${i}><i>${t[0]}</i>${t[1]}</div>`).join('');
+$('#tb').onclick=e=>{const b=e.target.closest('[data-t]');if(b)TB[b.dataset.t][2]()};
+function del(){if(!sel)return;S.remove(sel.mesh);parts=parts.filter(p=>p!==sel);select(null)}
+function dup(){if(!sel)return;const{mesh,id,...o}=sel;select(add({...o,pos:[sel.pos[0]+2,sel.pos[1],sel.pos[2]+2],size:[...sel.size]}))}
+const RIB={HOME:[['↖','Select',()=>tl('select')],['✥','Move',()=>tl('move')],['⤢','Scale',()=>tl('scale')],['⧉','Duplicate',dup],['🗑','Delete',del]],
+ MODEL:TB.map(t=>[t[0],t[1],t[2]]),TEST:[['▶','Play',()=>play()],['■','Stop',()=>stop()],['⬇','Export .rbxlx',()=>exp()]]};
+function tl(t){tool=t;rib(curTab);updGizmo();$('#nud').hidden=!sel||t=='select'}
+let curTab='HOME';
+function rib(k){curTab=k;$('#tabs').innerHTML=Object.keys(RIB).map(n=>`<div class="${n==k?'on':''}" data-k=${n}>${n}</div>`).join('');
+ $('#rib').innerHTML=RIB[k].map((b,i)=>`<div class="btn ${k=='HOME'&&b[1].toLowerCase()==tool?'on':''}" data-i=${i}><i>${b[0]}</i>${b[1]}</div>`).join('')}
+$('#tabs').onclick=e=>e.target.dataset.k&&rib(e.target.dataset.k);
+$('#rib').onclick=e=>{const b=e.target.closest('[data-i]');if(b)RIB[curTab][b.dataset.i][2]()};
+$('#nud').innerHTML=['X−','X+','Y−','Y+','Z−','Z+'].map((l,i)=>`<div class=btn data-a=${i>>1} data-s=${i%2?1:-1}>${l}</div>`).join('')+'<div class=btn id=sn>Snap 1</div>';
+$('#nud').onclick=e=>{const b=e.target;if(b.id=='sn'){snap=snap==1?2:snap==2?5:snap==5?.5:1;b.textContent='Snap '+snap;return}
+ if(b.dataset.a===undefined||!sel)return;const A=tool=='scale'?sel.size:sel.pos,a=+b.dataset.a;A[a]=Math.round((A[a]+b.dataset.s*snap)*100)/100;if(tool=='scale')A[a]=Math.max(.2,A[a]);upd(sel);ui()};
+// ---------- Camera & Gizmo Drag Input ----------
+const el=R.domElement,P=new Map();let down=null,pd=1,pc=[0,0];
+const pinch=()=>{const a=[...P.values()];return a.length>1?Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]):1};
+const cen=()=>{const a=[...P.values()];return a.length>1?[(a[0][0]+a[1][0])/2,(a[0][1]+a[1][1])/2]:[0,0]};
+el.onpointerdown=e=>{
+ el.setPointerCapture(e.pointerId);
+ if(mode=='edit'&&gz.visible&&!P.size){
+  const r=el.getBoundingClientRect(),rc=new THREE.Raycaster();
+  rc.setFromCamera(new THREE.Vector2((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1),C);
+  const h=rc.intersectObjects(gzHits)[0];
+  if(h){
+   const g=h.object.userData.gz,o=new THREE.Vector3(...sel.pos);
+   g.mat.opacity=1;
+   drag={id:e.pointerId,g,o,t0:dragT(rc.ray,o,g.dir),p0:[...sel.pos],s0:[...sel.size]};
+   return;
+  }
+ }
+ P.set(e.pointerId,[e.clientX,e.clientY]);down={m:0};pd=pinch();pc=cen()
+};
+el.onpointermove=e=>{
+ if(drag&&drag.id===e.pointerId){
+  const raw=dragT(ray(e),drag.o,drag.g.dir)-drag.t0;
+  const d=snap>0?Math.round(raw/snap)*snap:raw;
+  const a=drag.g.a,s=drag.g.s;
+  if(tool=='move'){
+   sel.pos[a]=Math.round((drag.p0[a]+s*d)*100)/100;
+  }else if(tool=='scale'){
+   const ns=Math.max(.2,Math.round((drag.s0[a]+d)*100)/100);
+   const ad=ns-drag.s0[a];
+   sel.size[a]=ns;
+   sel.pos[a]=Math.round((drag.p0[a]+s*(ad/2))*100)/100;
+  }
+  upd(sel);
+  if(!$('#prop').hidden)ui();
+  return;
+ }
+ const o=P.get(e.pointerId);if(!o)return;const dx=e.clientX-o[0],dy=e.clientY-o[1];P.set(e.pointerId,[e.clientX,e.clientY]);
+ if(P.size==1){yaw-=dx*.008;pitch=Math.max(.05,Math.min(1.5,pitch+dy*.008));down&&(down.m+=Math.abs(dx)+Math.abs(dy))}
+ else if(P.size==2){const d=pinch(),c=cen(),k=dist*.0015;dist=Math.max(5,Math.min(300,dist*pd/d));pd=d;
+  if(mode=='edit'){T.x+=-(c[0]-pc[0])*Math.cos(yaw)*k+(c[1]-pc[1])*-Math.sin(yaw)*k;T.z+=(c[0]-pc[0])*Math.sin(yaw)*k+(c[1]-pc[1])*-Math.cos(yaw)*k}pc=c;if(down)down.m=99}cam();updGizmo()};
+el.onpointerup=e=>{
+ if(drag&&drag.id===e.pointerId){drag.g.mat.opacity=.95;drag=null;ui();return}
+ P.delete(e.pointerId);if(down&&down.m<8&&!P.size&&mode=='edit')pick(e);if(!P.size)down=null
+};
+el.onwheel=e=>{dist=Math.max(5,Math.min(300,dist*(1+e.deltaY*.001)));cam();updGizmo()};
+function pick(e){const r=el.getBoundingClientRect(),rc=new THREE.Raycaster();rc.setFromCamera(new THREE.Vector2((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1),C);
+ const h=rc.intersectObjects(parts.map(p=>p.mesh))[0];select(h?h.object.userData.p:null)}
+// ---------- Play mode ----------
+let ch,pp=new THREE.Vector3(),vy=0,ground=false,jx=0,jy=0,jump=false,mv=0;const keys={};
+function mkChar(){const g=new THREE.Group(),bx=(w,h,d,c,x,y,z)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshLambertMaterial({color:c}));m.position.set(x,y,z);g.add(m);return m};
+ bx(2,2,1,0x0d69ac,0,3,0);bx(1,2,1,0xf5cd30,-1.5,3,0);bx(1,2,1,0xf5cd30,1.5,3,0);
+ const head=bx(1.2,1.2,1.2,0xf5cd30,0,4.6,0);head.material=[0,1,2,3,4,5].map(i=>new THREE.MeshLambertMaterial(i==4&&avTex?{map:avTex}:{color:0xf5cd30}));
+ const l=bx(1,2,1,0xa4bd47,-.5,1,0),r=bx(1,2,1,0xa4bd47,.5,1,0);l.geometry.translate(0,0,0);g.userData={l,r};
+ const cv=document.createElement('canvas');cv.width=256;cv.height=64;const x=cv.getContext('2d');x.font='bold 34px sans-serif';x.fillStyle='#fff';x.strokeStyle='#000';x.lineWidth=5;x.textAlign='center';
+ const nm=$('#user').value.trim()||'Player';x.strokeText(nm,128,42);x.fillText(nm,128,42);
+ const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),depthTest:false}));sp.scale.set(8,2,1);sp.position.y=6.8;g.add(sp);return g}
+function play(){if(mode=='play')return;mode='play';document.body.classList.add('play');$('#bp').hidden=true;$('#bs').hidden=false;
+ saved=[T.clone(),yaw,pitch,dist];dist=22;pitch=.4;grid.visible=false;hl.visible=false;gz.visible=false;
+ const sp=parts.find(p=>p.spawn);pp.set(sp?sp.pos[0]:0,sp?sp.pos[1]+sp.size[1]/2+.1:5,sp?sp.pos[2]:0);vy=0;
+ ch=mkChar();S.add(ch);loadAv().finally(()=>{if(mode=='play'&&avTex){S.remove(ch);ch=mkChar();S.add(ch)}})}
+function stop(){if(mode!='play')return;mode='edit';document.body.classList.remove('play');$('#bp').hidden=false;$('#bs').hidden=true;S.remove(ch);
+ [T,yaw,pitch,dist]=saved;grid.visible=true;hl.visible=!!sel;updGizmo();cam()}
+$('#bp').onclick=play;$('#bs').onclick=stop;
+function hit(ax){const H=.9;return parts.some(p=>{if(!p.collide)return false;const[x,y,z]=p.pos,[a,b,c]=p.size;
+ if(Math.abs(pp.x-x)>=H+a/2||Math.abs(pp.z-z)>=H+c/2||pp.y>=y+b/2-.05||pp.y+5<=y-b/2+.05)return false;
+ if(ax&&y+b/2-pp.y<=1.2&&ground){pp.y=y+b/2;return false}return true})}
+function step(dt){const ix=jx+(keys.d?1:0)-(keys.a?1:0),iy=jy+(keys.s?1:0)-(keys.w?1:0),f=[-Math.sin(yaw),-Math.cos(yaw)],r=[Math.cos(yaw),-Math.sin(yaw)];
+ let dx=f[0]*-iy+r[0]*ix,dz=f[1]*-iy+r[1]*ix;const L=Math.hypot(dx,dz);if(L>1){dx/=L;dz/=L}
+ const s=16*dt;pp.x+=dx*s;if(hit(1))pp.x-=dx*s;pp.z+=dz*s;if(hit(1))pp.z-=dz*s;
+ if((jump||keys[' '])&&ground){vy=50;ground=false}vy=Math.max(-150,vy-196*dt);const oy=pp.y;pp.y+=vy*dt;ground=false;
+ for(const p of parts){if(!p.collide)continue;const[x,y,z]=p.pos,[a,b,c]=p.size;if(Math.abs(pp.x-x)>=.9+a/2||Math.abs(pp.z-z)>=.9+c/2)continue;
+  const top=y+b/2,bot=y-b/2;if(vy<=0&&oy>=top-.01&&pp.y<top){pp.y=top;vy=0;ground=true}else if(vy>0&&oy+5<=bot+.01&&pp.y+5>bot){pp.y=bot-5;vy=0}}
+ if(pp.y<-200){const sp=parts.find(p=>p.spawn);pp.set(sp?sp.pos[0]:0,10,sp?sp.pos[2]:0);vy=0}
+ ch.position.copy(pp);if(L>.1){ch.rotation.y=Math.atan2(dx,dz);mv+=dt*10}else mv=0;const w=Math.sin(mv)*.8*(ground?1:.3);ch.userData.l.rotation.x=w;ch.userData.r.rotation.x=-w;
+ T.set(pp.x,pp.y+3,pp.z);cam()}
+const joy=$('#joy'),kn=$('#knob');
+function jm(e){const r=joy.getBoundingClientRect();let x=(e.clientX-r.left-55)/45,y=(e.clientY-r.top-55)/45;const l=Math.hypot(x,y);if(l>1){x/=l;y/=l}jx=x;jy=y;kn.style.transform=`translate(${x*35}px,${y*35}px)`}
+joy.onpointerdown=e=>{joy.setPointerCapture(e.pointerId);jm(e);joy.dn=1};joy.onpointermove=e=>joy.dn&&jm(e);joy.onpointerup=()=>{joy.dn=0;jx=jy=0;kn.style.transform=''};
+$('#jmp').onpointerdown=()=>jump=true;$('#jmp').onpointerup=()=>jump=false;
+addEventListener('keydown',e=>{if(e.target.tagName!='INPUT')keys[e.key.toLowerCase()]=1});addEventListener('keyup',e=>keys[e.key.toLowerCase()]=0);
+// ---------- Avatar from username (public endpoints, no login) ----------
+async function loadAv(){const n=$('#user').value.trim();if(!n)return;try{
+ const u=await(await fetch('https://users.roblox.com/v1/usernames/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({usernames:[n],excludeBannedUsers:true})})).json();
+ if(!u.data||!u.data[0])return toast('Username not found');
+ const t=await(await fetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${u.data[0].id}&size=150x150&format=Png`)).json();
+ const L=new THREE.TextureLoader();L.setCrossOrigin('anonymous');avTex=await new Promise((ok,no)=>L.load(t.data[0].imageUrl,ok,undefined,no));toast('Avatar loaded for '+n)}
+ catch(e){toast('Could not reach Roblox (browser CORS) — default avatar used')}}
+$('#user').onchange=()=>{avTex=null;loadAv()};
+// ---------- Export .rbxlx ----------
+function xml(){let n=0;const rf=()=>'RBX'+(++n).toString(16).toUpperCase().padStart(32,'0'),E=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+ const part=p=>{const[x,y,z]=p.pos,[a,b,c]=p.size,col=4278190080+parseInt(p.color.slice(1),16);
+  return `<Item class="${p.spawn?'SpawnLocation':'Part'}" referent="${rf()}"><Properties><string name="Name">${E(p.name)}</string><bool name="Anchored">${p.anchored}</bool><bool name="CanCollide">${p.collide}</bool><float name="Transparency">${p.transp}</float><token name="shape">${{ball:0,block:1,cyl:2}[p.shape]}</token><Color3uint8 name="Color3uint8">${col}</Color3uint8><Vector3 name="size"><X>${a}</X><Y>${b}</Y><Z>${c}</Z></Vector3><CoordinateFrame name="CFrame"><X>${x}</X><Y>${y}</Y><Z>${z}</Z><R00>1</R00><R01>0</R01><R02>0</R02><R10>0</R10><R11>1</R11><R12>0</R12><R20>0</R20><R21>0</R21><R22>1</R22></CoordinateFrame></Properties></Item>`};
+ const M={};let body='';parts.forEach(p=>p.model?(M[p.model]=M[p.model]||[]).push(p):body+=part(p));
+ for(const k in M)body+=`<Item class="Model" referent="${rf()}"><Properties><string name="Name">${E(k)}</string></Properties>${M[k].map(part).join('')}</Item>`;
+ return `<?xml version="1.0" encoding="utf-8"?>
+<roblox version="4"><Item class="Workspace" referent="${rf()}"><Properties><string name="Name">Workspace</string></Properties>${body}</Item><Item class="Lighting" referent="${rf()}"><Properties><string name="Name">Lighting</string></Properties></Item></roblox>`}
+function exp(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([xml()],{type:'application/xml'}));a.download='Place1.rbxlx';a.click();toast('Exported Place1.rbxlx')}
+// ---------- Boot ----------
+function fit(){const w=VP.clientWidth,h=VP.clientHeight;R.setSize(w,h,false);C.aspect=w/h;C.updateProjectionMatrix()}
+new ResizeObserver(fit).observe(VP);
+add({name:'Baseplate',color:'#5b7d4a',size:[512,1,512],pos:[0,-.5,0]});add({name:'SpawnLocation',spawn:true,size:[6,1,6],pos:[0,.5,0]});
+rib('HOME');ui();cam();fit();$('#nud').hidden=true;
+let last=performance.now();(function loop(t){requestAnimationFrame(loop);const dt=Math.min((t-last)/1000,.05);last=t;
+ if(mode=='play')for(let i=0;i<3;i++)step(dt/3);R.render(S,C)})(last);
+</script></body></html>
